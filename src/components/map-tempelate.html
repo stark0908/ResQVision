@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Global Disaster Tracker</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Poppins', sans-serif;
+      overflow: hidden;
+    }
+    #map {
+      width: 100%;
+      height: 100vh;
+      background: #f0f5ff;
+    }
+    .legend {
+      position: absolute;
+      bottom: 30px;
+      left: 30px;
+      width: 170px;
+      border: none;
+      border-radius: 12px;
+      z-index: 9999;
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 15px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      backdrop-filter: blur(5px);
+    }
+    .legend-title {
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #333;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .legend-icon {
+      margin-right: 8px;
+      font-size: 16px;
+    }
+    .control-panel {
+      position: absolute;
+      top: 30px;
+      right: 30px;
+      z-index: 9999;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      padding: 15px;
+      width: 220px;
+      backdrop-filter: blur(5px);
+    }
+    .control-title {
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #333;
+      display: flex;
+      align-items: center;
+      font-size: 15px;
+    }
+    .control-title i {
+      margin-right: 8px;
+      color: #4a6bdf;
+    }
+    .select-wrapper {
+      position: relative;
+      margin-bottom: 15px;
+    }
+    .select-wrapper::after {
+      content: "▼";
+      font-size: 10px;
+      color: #666;
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+    .time-select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      background: white;
+      font-family: 'Poppins', sans-serif;
+      font-size: 13px;
+      appearance: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .time-select:hover {
+      border-color: #4a6bdf;
+    }
+    .time-select:focus {
+      outline: none;
+      border-color: #4a6bdf;
+      box-shadow: 0 0 0 2px rgba(74, 107, 223, 0.2);
+    }
+    .data-age {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 12px;
+      color: #555;
+      border-left: 3px solid #4a6bdf;
+    }
+    .data-age strong {
+      color: #333;
+    }
+    .map-overlay {
+      position: absolute;
+      bottom: 30px;
+      right: 30px;
+      z-index: 999;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .leaflet-popup-content {
+      font-family: 'Poppins', sans-serif !important;
+    }
+    .leaflet-popup-content-wrapper {
+      border-radius: 10px !important;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  
+  <div class="control-panel">
+    <div class="control-title">
+      <i class="fas fa-sliders-h"></i> Disaster Tracker Controls
+    </div>
+    
+    <div class="select-wrapper">
+      <label for="time-range" style="display: block; margin-bottom: 6px; font-size: 12px; color: #555;">Time Range:</label>
+      <select id="time-range" class="time-select" onchange="filterDisasters()">
+        <option value="all">All Disasters</option>
+        <option value="day">Last 24 Hours</option>
+        <option value="week">Last 7 Days</option>
+        <option value="month">Last 30 Days</option>
+        <option value="year">Last 365 Days</option>
+      </select>
+    </div>
+    
+    <div class="data-age" id="data-age">
+      <strong>Currently showing:</strong> All available disasters
+    </div>
+  </div>
+  
+  <div class="legend">
+    <div class="legend-title">
+      <i class="fas fa-map-marked-alt"></i> Disaster Legend
+    </div>
+    <div class="legend-item"><i class="fas fa-map-marker-alt legend-icon" style="color:red"></i> Earthquake</div>
+    <div class="legend-item"><i class="fas fa-map-marker-alt legend-icon" style="color:blue"></i> Cyclone</div>
+    <div class="legend-item"><i class="fas fa-map-marker-alt legend-icon" style="color:green"></i> Flood</div>
+    <div class="legend-item"><i class="fas fa-map-marker-alt legend-icon" style="color:orange"></i> Volcano</div>
+    <div class="legend-item"><i class="fas fa-map-marker-alt legend-icon" style="color:purple"></i> Wildfire</div>
+    <div class="legend-item"><i class="fas fa-map-marker-alt legend-icon" style="color:beige"></i> Drought</div>
+  </div>
+  
+  <div class="map-overlay">
+    <i class="fas fa-info-circle"></i> Click markers for details
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  
+  <!-- Leaflet.heat plugin -->
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  
+  <script>
+    // Initialize the map with more colorful basemap
+    const map = L.map('map').setView([20, 0], 2);
+    
+    // Add colorful tile layer
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map);
+    
+    // Add subtle terrain layer
+    L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain-background/{z}/{x}/{y}{r}.{ext}', {
+      attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>',
+      subdomains: 'abcd',
+      minZoom: 0,
+      maxZoom: 18,
+      ext: 'png',
+      opacity: 0.3
+    }).addTo(map);
+    
+    // Color coding for disaster types with more vibrant colors
+    const disasterColors = {
+      'EQ': '#ff3a30',  // Vibrant red
+      'TC': '#0a84ff',  // Bright blue
+      'FL': '#30d158',  // Lush green
+      'VO': '#ff9f0a',  // Vivid orange
+      'DR': '#d4a373',  // Earthy beige
+      'WF': '#bf5af2'   // Electric purple
+    };
+
+    // Custom marker icons
+    function createCustomIcon(color) {
+      return L.divIcon({
+        html: `<svg viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="1.5" fill="${color}" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                <circle cx="12" cy="9" r="2.5"/>
+              </svg>`,
+        className: '',
+        iconSize: [24, 24],
+        iconAnchor: [12, 24]
+      });
+    }
+
+    let allMarkers = [];
+    let currentFilter = 'all';
+    let heatmapLayer = null;
+    
+    // Function to calculate days between dates
+    function daysSince(dateString) {
+      if (!dateString) return Infinity;
+      const eventDate = new Date(dateString);
+      const today = new Date();
+      const diffTime = today - eventDate;
+      return Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
+    }
+
+    // Function to filter markers based on time range
+    function filterDisasters() {
+      const timeRange = document.getElementById('time-range').value;
+      currentFilter = timeRange;
+      
+      // Update data age display
+      const ageDisplay = document.getElementById('data-age');
+      let ageText = '<strong>Currently showing:</strong> ';
+      
+      switch(timeRange) {
+        case 'day': ageText += 'Last 24 hours'; break;
+        case 'week': ageText += 'Last 7 days'; break;
+        case 'month': ageText += 'Last 30 days'; break;
+        case 'year': ageText += 'Last 365 days'; break;
+        default: ageText += 'All available disasters';
+      }
+      ageDisplay.innerHTML = ageText;
+      
+      // Filter markers
+      allMarkers.forEach(marker => {
+        const daysOld = marker.daysOld;
+        let shouldShow = true;
+        
+        if (timeRange === 'day' && daysOld > 1) shouldShow = false;
+        else if (timeRange === 'week' && daysOld > 7) shouldShow = false;
+        else if (timeRange === 'month' && daysOld > 30) shouldShow = false;
+        else if (timeRange === 'year' && daysOld > 365) shouldShow = false;
+        
+        if (shouldShow) {
+          if (!map.hasLayer(marker)) marker.addTo(map);
+        } else {
+          if (map.hasLayer(marker)) map.removeLayer(marker);
+        }
+      });
+      
+      updateHeatmap();
+    }
+    
+    // Function to update heatmap visualization
+    function updateHeatmap() {
+      if (heatmapLayer) map.removeLayer(heatmapLayer);
+      
+      const heatData = allMarkers
+        .filter(marker => {
+          if (currentFilter === 'all') return true;
+          const daysOld = marker.daysOld;
+          if (currentFilter === 'day') return daysOld <= 1;
+          if (currentFilter === 'week') return daysOld <= 7;
+          if (currentFilter === 'month') return daysOld <= 30;
+          if (currentFilter === 'year') return daysOld <= 365;
+          return true;
+        })
+        .map(marker => {
+          const latlng = marker.getLatLng();
+          // Weight newer events more heavily
+          const weight = 1 - Math.min(marker.daysOld / 365, 0.9);
+          return [latlng.lat, latlng.lng, weight];
+        });
+      
+      if (heatData.length > 0) {
+        heatmapLayer = L.heatLayer(heatData, {
+          radius: 20,
+          blur: 15,
+          maxZoom: 17,
+          max: 0.5,
+          gradient: {0.4: 'blue', 0.6: 'lime', 1: 'red'}
+        }).addTo(map);
+      }
+    }
+    
+    // Enhanced popup content with icons
+    function createPopupContent(properties, daysOld) {
+      const typeIcons = {
+        'EQ': 'fa-mountain',
+        'TC': 'fa-wind',
+        'FL': 'fa-water',
+        'VO': 'fa-volcano',
+        'DR': 'fa-sun',
+        'WF': 'fa-fire'
+      };
+      
+      const iconClass = typeIcons[properties.eventtype] || 'fa-exclamation-triangle';
+      const severityColor = 
+        properties.alertlevel === 'Red' ? 'color:red' : 
+        properties.alertlevel === 'Orange' ? 'color:orange' : 
+        'color:green';
+      
+      return `
+        <div style="min-width: 200px;">
+          <div style="display: flex; align-items: center; margin-bottom: 8px;">
+            <i class="fas ${iconClass}" style="font-size: 18px; margin-right: 8px; ${severityColor}"></i>
+            <h3 style="margin: 0; font-size: 16px;">${properties.eventtype || 'Disaster'}</h3>
+          </div>
+          <div style="font-size: 13px; line-height: 1.5;">
+            <div><b><i class="fas fa-map-marker-alt" style="width: 16px;"></i> Location:</b> ${properties.country || 'Unknown'}</div>
+            <div><b><i class="fas fa-bell" style="width: 16px;"></i> Severity:</b> <span style="${severityColor}">${properties.alertlevel || 'Unknown'}</span></div>
+            <div><b><i class="fas fa-calendar-day" style="width: 16px;"></i> Date:</b> ${properties.fromdate ? new Date(properties.fromdate).toLocaleString() : 'Unknown'}</div>
+            <div><b><i class="fas fa-clock" style="width: 16px;"></i> Age:</b> ${daysOld} day(s)</div>
+            ${properties.description ? <div style="margin-top: 8px;"><b>Details:</b> ${properties.description.substring(0, 100)}...</div> : ''}
+          </div>
+        </div>
+      `;
+    }
+    
+    // Fetch disaster data from GDACS API
+    fetch('https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH')
+      .then(response => response.json())
+      .then(data => {
+        data.features.forEach(event => {
+          const properties = event.properties;
+          const disasterType = properties.eventtype;
+          const [lon, lat] = event.geometry.coordinates;
+          const daysOld = daysSince(properties.fromdate);
+          
+          // Create custom marker with SVG icon
+          const marker = L.marker([lat, lon], {
+            icon: createCustomIcon(disasterColors[disasterType] || '#666')
+          }).bindPopup(createPopupContent(properties, daysOld));
+          
+          // Store age information with marker
+          marker.daysOld = daysOld;
+          allMarkers.push(marker);
+          
+          // Add to map based on current filter
+          if (currentFilter === 'all' || 
+              (currentFilter === 'day' && daysOld <= 1) ||
+              (currentFilter === 'week' && daysOld <= 7) ||
+              (currentFilter === 'month' && daysOld <= 30) ||
+              (currentFilter === 'year' && daysOld <= 365)) {
+            marker.addTo(map);
+          }
+        });
+        
+        // Add heatmap layer
+        updateHeatmap();
+        
+        // Add zoom animation
+        setTimeout(() => {
+          map.flyTo([20, 0], 2, {
+            duration: 1.5,
+            easeLinearity: 0.25
+          });
+        }, 500);
+      })
+      .catch(error => {
+        console.error('Error fetching disaster data:', error);
+      });
+    
+    // Add zoom controls with better styling
+    L.control.zoom({
+      position: 'bottomright',
+      zoomInText: '<i class="fas fa-search-plus"></i>',
+      zoomOutText: '<i class="fas fa-search-minus"></i>'
+    }).addTo(map);
+  </script>
+</body>
+</html>
