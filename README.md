@@ -1,6 +1,7 @@
 
 #  ResqVision
 
+
 **resqVision** is a cutting-edge emergency response and disaster management platform designed to enhance communication, coordination, and situational awareness during crises. The platform uses AI-powered tools and a real-time dashboard to help responders and officials make data-driven decisions efficiently.
 
 🌐 [Live Site](https://resq-vision.netlify.app/)
